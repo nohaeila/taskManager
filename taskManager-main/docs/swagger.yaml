@@ -1,0 +1,642 @@
+openapi: 3.0.0
+info:
+  title: API de Gestion des Tâches
+  description: |
+    
+    Cette API permet de :
+    - Créer un compte et se connecter
+    - Gérer des tâches (créer, modifier, supprimer)
+    - Ajouter des collaborateurs sur vos tâches
+    
+    ## Comment utiliser l'authentification ?
+    1. Créez un compte avec /api/auth/signup
+    2. Connectez-vous avec /api/auth/login (vous recevrez un token)
+    3. Cliquez sur le bouton "Authorize" en haut
+    4. Collez votre token dans le champ
+    5. Maintenant vous pouvez tester toutes les routes protégées !
+    
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Serveur local
+
+tags:
+  - name: Authentification
+    description: Créer un compte, se connecter, se déconnecter
+  - name: Utilisateurs
+    description: Gérer les utilisateurs
+  - name: Tâches
+    description: Créer et gérer vos tâches
+  - name: Collaborateurs
+    description: Ajouter des personnes sur vos tâches
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Entrez votre token JWT ici.
+        Format: Bearer <votre_token>
+
+  schemas:
+    Utilisateur:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Identifiant unique de l'utilisateur
+          example: 1
+        name:
+          type: string
+          description: Nom de l'utilisateur
+          example: Jean Dupont
+        is_login:
+          type: boolean
+          description: Est-ce que l'utilisateur est connecté ?
+          example: true
+
+    Tache:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Identifiant unique de la tâche
+          example: 1
+        name:
+          type: string
+          description: Nom de la tâche
+          example: Créer une application
+        description:
+          type: string
+          description: Description détaillée
+          example: Développer une application de todo list
+        is_done:
+          type: boolean
+          description: La tâche est-elle terminée ?
+          example: false
+        userId:
+          type: integer
+          description: ID du propriétaire de la tâche
+          example: 1
+        collaboratorId:
+          type: array
+          description: Liste des IDs des collaborateurs
+          items:
+            type: integer
+          example: [2, 3]
+
+    Erreur:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Message d'erreur
+          example: Une erreur est survenue
+
+paths:
+  # ==================== AUTHENTIFICATION ====================
+  
+  /api/auth/signup:
+    post:
+      summary: Créer un nouveau compte
+      description: Permet à un nouvel utilisateur de s'inscrire
+      tags:
+        - Authentification
+      requestBody:
+        required: true
+        description: Informations pour créer le compte
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - password
+              properties:
+                name:
+                  type: string
+                  description: Nom d'utilisateur (doit être unique)
+                  example: Jean
+                password:
+                  type: string
+                  format: password
+                  description: Mot de passe (sera crypté)
+                  example: monMotDePasse123
+      responses:
+        '201':
+          description: Compte créé avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Utilisateur créé avec succès
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      name:
+                        type: string
+                        example: Jean
+        '400':
+          description: Il manque des informations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Nom et mot de passe requis
+        '409':
+          description: Ce nom d'utilisateur existe déjà
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Utilisateur déjà existant
+
+  /api/auth/login:
+    post:
+      summary: Se connecter
+      description: Connectez-vous pour recevoir vos tokens d'accès
+      tags:
+        - Authentification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - password
+              properties:
+                name:
+                  type: string
+                  example: Jean
+                password:
+                  type: string
+                  format: password
+                  example: monMotDePasse123
+      responses:
+        '200':
+          description: Connexion réussie - Utilisez le accessToken pour les autres requêtes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Connexion réussie
+                  accessToken:
+                    type: string
+                    description: Token à utiliser pour les requêtes (expire dans 15min)
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  refreshToken:
+                    type: string
+                    description: Token pour renouveler l'accessToken (expire dans 7 jours)
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      name:
+                        type: string
+                        example: Jean
+        '401':
+          description: Nom d'utilisateur ou mot de passe incorrect
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Identifiants invalides
+
+  /api/auth/refresh:
+    post:
+      summary: Renouveler le token d'accès
+      description: Utilisez votre refreshToken pour obtenir un nouveau accessToken
+      tags:
+        - Authentification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  description: Le refreshToken reçu lors de la connexion
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Nouveau token généré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '403':
+          description: Token invalide ou expiré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+
+  /api/auth/logout:
+    post:
+      summary: Se déconnecter
+      description: Déconnectez-vous et invalidez votre refreshToken
+      tags:
+        - Authentification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Déconnexion réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Déconnexion réussie
+
+  # ==================== UTILISATEURS ====================
+  
+  /api/users:
+    get:
+      summary: Voir tous les utilisateurs
+      description: Récupère la liste complète des utilisateurs
+      tags:
+        - Utilisateurs
+      responses:
+        '200':
+          description: Liste récupérée
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Utilisateur'
+              example:
+                - id: 1
+                  name: Jean
+                  is_login: true
+                - id: 2
+                  name: Bob
+                  is_login: false
+
+  /api/users/{id}:
+    put:
+      summary: Modifier mon profil
+      description: Vous ne pouvez modifier que VOTRE propre profil
+      tags:
+        - Utilisateurs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Votre ID utilisateur
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Votre nouveau nom
+                  example: Jean Nouveau
+      responses:
+        '200':
+          description: Profil modifié
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  name:
+                    type: string
+                    example: Jean Nouveau
+        '403':
+          description: Vous ne pouvez modifier que votre propre profil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+        '404':
+          description: Utilisateur non trouvé
+
+    delete:
+      summary: Supprimer un utilisateur
+      tags:
+        - Utilisateurs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Utilisateur supprimé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Utilisateur'
+        '404':
+          description: Utilisateur non trouvé
+
+  # ==================== TÂCHES ====================
+  
+  /api/tasks:
+    get:
+      summary: Voir mes tâches
+      description: Affiche toutes les tâches où vous êtes propriétaire OU collaborateur
+      tags:
+        - Tâches
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Voici vos tâches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tache'
+              example:
+                - id: 1
+                  name: Projet1
+                  description: Développer un jeu
+                  is_done: false
+                  userId: 1
+                  collaboratorId: [2]
+                - id: 2
+                  name: Projet2
+                  description: Site web
+                  is_done: false
+                  userId: 2
+                  collaboratorId: []
+        '401':
+          description: Vous devez être connecté
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+
+    post:
+      summary: Créer une nouvelle tâche
+      description: Créez une tâche dont vous serez le propriétaire
+      tags:
+        - Tâches
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - description
+              properties:
+                name:
+                  type: string
+                  description: Nom de la tâche
+                  example: Mon nouveau projet
+                description:
+                  type: string
+                  description: Description détaillée
+                  example: Créer une application mobile
+      responses:
+        '201':
+          description: Tâche créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tache'
+        '400':
+          description: Nom et description requis
+
+  /api/tasks/{id}:
+    put:
+      summary: Modifier une tâche
+      description: Modifiez une tâche si vous êtes propriétaire OU collaborateur
+      tags:
+        - Tâches
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de la tâche à modifier
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Projet1 modifié
+                description:
+                  type: string
+                  example: Nouvelle description
+                is_done:
+                  type: boolean
+                  description: Marquer comme terminée ?
+                  example: true
+      responses:
+        '200':
+          description: Tâche modifiée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tache'
+        '403':
+          description: Vous n'avez pas accès à cette tâche
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+        '404':
+          description: Tâche non trouvée
+
+    delete:
+      summary: Supprimer une tâche
+      description: Seul le propriétaire peut supprimer une tâche
+      tags:
+        - Tâches
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de la tâche à supprimer
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Tâche supprimée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Tâche supprimée
+                  task:
+                    $ref: '#/components/schemas/Tache'
+        '403':
+          description: Seul le propriétaire peut supprimer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+        '404':
+          description: Tâche non trouvée
+
+  # ==================== COLLABORATEURS ====================
+  
+  /api/tasks/{id}/collaborators:
+    post:
+      summary: Ajouter un collaborateur
+      description: Ajoutez quelqu'un pour travailler avec vous sur cette tâche (propriétaire uniquement)
+      tags:
+        - Collaborateurs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de la tâche
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: integer
+                  description: ID de l'utilisateur à ajouter
+                  example: 2
+      responses:
+        '200':
+          description: Collaborateur ajouté
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Collaborateur ajouté
+                  task:
+                    $ref: '#/components/schemas/Tache'
+        '400':
+          description: Erreur (utilisateur déjà collaborateur, propriétaire, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+        '403':
+          description: Seul le propriétaire peut ajouter des collaborateurs
+        '404':
+          description: Tâche ou utilisateur non trouvé
+
+  /api/tasks/{id}/collaborators/{userId}:
+    delete:
+      summary: Retirer un collaborateur
+      description: Retirez un collaborateur de votre tâche (propriétaire uniquement)
+      tags:
+        - Collaborateurs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID de la tâche
+          schema:
+            type: integer
+            example: 1
+        - name: userId
+          in: path
+          required: true
+          description: ID du collaborateur à retirer
+          schema:
+            type: integer
+            example: 2
+      responses:
+        '200':
+          description: Collaborateur retiré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Collaborateur retiré
+                  task:
+                    $ref: '#/components/schemas/Tache'
+        '403':
+          description: Seul le propriétaire peut retirer des collaborateurs
+        '404':
+          description: Tâche ou collaborateur non trouvé
