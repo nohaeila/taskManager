@@ -4,7 +4,6 @@ export interface User {
   name: string;
   password: string;
   is_login: boolean;
-  refreshToken?: string | undefined;
 }
 
 export const users: User[] = [
