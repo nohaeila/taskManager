@@ -4,22 +4,33 @@ info:
   description: |
     
     Cette API permet de :
-    - Créer un compte et se connecter
+    - Créer un compte et se connecter (avec validation de mot de passe renforcée)
     - Gérer des tâches (créer, modifier, supprimer)
     - Ajouter des collaborateurs sur vos tâches
+    
+    ## Validation du mot de passe
+    Le mot de passe doit contenir :
+    - Au moins 8 caractères
+    - Au moins 1 majuscule
+    - Au moins 1 minuscule
+    - Au moins 1 chiffre
+    - Au moins 1 caractère spécial (!@#$%^&*(),.?":{}|<>)
     
     ## Comment utiliser l'authentification ?
     1. Créez un compte avec /api/auth/signup
     2. Connectez-vous avec /api/auth/login (vous recevrez un token)
     3. Cliquez sur le bouton "Authorize" en haut
-    4. Collez votre token dans le champ
+    4. Collez votre token dans le champ (sans "Bearer")
     5. Maintenant vous pouvez tester toutes les routes protégées !
     
-  version: 1.0.0
+  version: 2.0.0
+  contact:
+    name: Support API
+    email: support@example.com
 
 servers:
   - url: http://localhost:3000
-    description: Serveur local
+    description: Serveur local de développement
 
 tags:
   - name: Authentification
@@ -39,7 +50,8 @@ components:
       bearerFormat: JWT
       description: |
         Entrez votre token JWT ici.
-        Format: Bearer <votre_token>
+        Le token expire après 15 minutes.
+        Utilisez /api/auth/refresh pour le renouveler.
 
   schemas:
     Utilisateur:
@@ -102,7 +114,17 @@ paths:
   /api/auth/signup:
     post:
       summary: Créer un nouveau compte
-      description: Permet à un nouvel utilisateur de s'inscrire
+      description: |
+        Permet à un nouvel utilisateur de s'inscrire.
+        
+        **Validation du mot de passe :**
+        - Minimum 8 caractères
+        - Au moins 1 majuscule (A-Z)
+        - Au moins 1 minuscule (a-z)
+        - Au moins 1 chiffre (0-9)
+        - Au moins 1 caractère spécial (!@#$%^&*(),.?":{}|<>)
+        
+        Exemples valides : `Abcde123@`, `Test123!`, `MyPass2024#`
       tags:
         - Authentification
       requestBody:
@@ -120,11 +142,24 @@ paths:
                   type: string
                   description: Nom d'utilisateur (doit être unique)
                   example: Jean
+                  minLength: 1
                 password:
                   type: string
                   format: password
-                  description: Mot de passe (sera crypté)
-                  example: monMotDePasse123
+                  description: Mot de passe (sera crypté avec bcrypt)
+                  example: MonPass123@
+                  minLength: 8
+            examples:
+              exemple_valide:
+                summary: Exemple valide
+                value:
+                  name: "Jean"
+                  password: "Secure123@"
+              exemple_invalide:
+                summary: Mot de passe trop faible (sera rejeté)
+                value:
+                  name: "Jean"
+                  password: "123456"
       responses:
         '201':
           description: Compte créé avec succès
@@ -146,13 +181,20 @@ paths:
                         type: string
                         example: Jean
         '400':
-          description: Il manque des informations
+          description: Données invalides ou mot de passe non conforme
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erreur'
-              example:
-                error: Nom et mot de passe requis
+              examples:
+                champs_manquants:
+                  summary: Champs manquants
+                  value:
+                    error: Nom et mot de passe requis
+                password_invalide:
+                  summary: Mot de passe non conforme
+                  value:
+                    error: Le mot de passe doit contenir au moins 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial
         '409':
           description: Ce nom d'utilisateur existe déjà
           content:
@@ -161,11 +203,24 @@ paths:
                 $ref: '#/components/schemas/Erreur'
               example:
                 error: Utilisateur déjà existant
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Erreur serveur
 
   /api/auth/login:
     post:
       summary: Se connecter
-      description: Connectez-vous pour recevoir vos tokens d'accès
+      description: |
+        Connectez-vous pour recevoir vos tokens d'accès.
+        
+        **Tokens retournés :**
+        - `accessToken` : Valide 15 minutes, à utiliser pour toutes les requêtes
+        - `refreshToken` : Valide 7 jours, pour renouveler l'accessToken
       tags:
         - Authentification
       requestBody:
@@ -184,7 +239,7 @@ paths:
                 password:
                   type: string
                   format: password
-                  example: monMotDePasse123
+                  example: MonPass123@
       responses:
         '200':
           description: Connexion réussie - Utilisez le accessToken pour les autres requêtes
@@ -213,6 +268,14 @@ paths:
                       name:
                         type: string
                         example: Jean
+        '400':
+          description: Champs manquants
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Nom et mot de passe requis
         '401':
           description: Nom d'utilisateur ou mot de passe incorrect
           content:
@@ -221,11 +284,19 @@ paths:
                 $ref: '#/components/schemas/Erreur'
               example:
                 error: Identifiants invalides
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
 
   /api/auth/refresh:
     post:
       summary: Renouveler le token d'accès
-      description: Utilisez votre refreshToken pour obtenir un nouveau accessToken
+      description: |
+        Utilisez votre refreshToken pour obtenir un nouveau accessToken.
+        Utile quand votre accessToken a expiré (après 15 minutes).
       tags:
         - Authentification
       requestBody:
@@ -251,9 +322,26 @@ paths:
                 properties:
                   accessToken:
                     type: string
+                    description: Nouveau token d'accès (valide 15 min)
                     example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          description: Refresh token manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Refresh token requis
         '403':
           description: Token invalide ou expiré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Refresh token invalide ou expiré
+        '500':
+          description: Erreur serveur
           content:
             application/json:
               schema:
@@ -262,7 +350,9 @@ paths:
   /api/auth/logout:
     post:
       summary: Se déconnecter
-      description: Déconnectez-vous et invalidez votre refreshToken
+      description: |
+        Déconnectez-vous et invalidez votre refreshToken.
+        Le refreshToken sera supprimé de la base de données.
       tags:
         - Authentification
       requestBody:
@@ -288,13 +378,29 @@ paths:
                   message:
                     type: string
                     example: Déconnexion réussie
+        '400':
+          description: Refresh token manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Refresh token requis
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
 
   # ==================== UTILISATEURS ====================
   
   /api/users:
     get:
       summary: Voir tous les utilisateurs
-      description: Récupère la liste complète des utilisateurs
+      description: |
+        Récupère la liste complète des utilisateurs enregistrés.
+        Route publique (pas besoin d'authentification).
       tags:
         - Utilisateurs
       responses:
@@ -313,11 +419,19 @@ paths:
                 - id: 2
                   name: Bob
                   is_login: false
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
 
   /api/users/{id}:
     put:
       summary: Modifier mon profil
-      description: Vous ne pouvez modifier que VOTRE propre profil
+      description: |
+        Vous ne pouvez modifier que VOTRE propre profil.
+        L'ID dans l'URL doit correspondre à votre ID utilisateur (dans le token).
       tags:
         - Utilisateurs
       security:
@@ -336,11 +450,14 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - name
               properties:
                 name:
                   type: string
                   description: Votre nouveau nom
                   example: Jean Nouveau
+                  minLength: 1
       responses:
         '200':
           description: Profil modifié
@@ -355,23 +472,54 @@ paths:
                   name:
                     type: string
                     example: Jean Nouveau
+                  is_login:
+                    type: boolean
+                    example: true
+        '400':
+          description: Nom manquant ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Le nom est requis
+        '401':
+          description: Token manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Token requis
         '403':
           description: Vous ne pouvez modifier que votre propre profil
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erreur'
+              example:
+                error: Vous ne pouvez modifier que votre propre profil
         '404':
           description: Utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Utilisateur non trouvé
 
     delete:
       summary: Supprimer un utilisateur
+      description: |
+        Supprime un utilisateur de la base de données.
+        ⚠️ Cette action est irréversible.
       tags:
         - Utilisateurs
       parameters:
         - name: id
           in: path
           required: true
+          description: ID de l'utilisateur à supprimer
           schema:
             type: integer
             example: 1
@@ -381,16 +529,34 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Utilisateur'
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Utilisateur supprimé
         '404':
           description: Utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Utilisateur non trouvé
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
 
   # ==================== TÂCHES ====================
   
   /api/tasks:
     get:
       summary: Voir mes tâches
-      description: Affiche toutes les tâches où vous êtes propriétaire OU collaborateur
+      description: |
+        Affiche toutes les tâches où vous êtes propriétaire OU collaborateur.
+        Les tâches sont stockées en base de données SQLite.
       tags:
         - Tâches
       security:
@@ -423,10 +589,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erreur'
+              example:
+                error: Token requis
+        '403':
+          description: Token invalide ou expiré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Token invalide ou expiré
+        '500':
+          description: Erreur serveur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
 
     post:
       summary: Créer une nouvelle tâche
-      description: Créez une tâche dont vous serez le propriétaire
+      description: |
+        Créez une tâche dont vous serez le propriétaire.
+        Vous pourrez ensuite ajouter des collaborateurs.
       tags:
         - Tâches
       security:
@@ -445,10 +629,12 @@ paths:
                   type: string
                   description: Nom de la tâche
                   example: Mon nouveau projet
+                  minLength: 1
                 description:
                   type: string
                   description: Description détaillée
                   example: Créer une application mobile
+                  minLength: 1
       responses:
         '201':
           description: Tâche créée
@@ -456,13 +642,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Tache'
+              example:
+                id: 3
+                name: Mon nouveau projet
+                description: Créer une application mobile
+                is_done: false
+                userId: 1
+                collaboratorId: []
         '400':
           description: Nom et description requis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Nom et description requis
+        '401':
+          description: Token manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
 
   /api/tasks/{id}:
     put:
       summary: Modifier une tâche
-      description: Modifiez une tâche si vous êtes propriétaire OU collaborateur
+      description: |
+        Modifiez une tâche si vous êtes propriétaire OU collaborateur.
+        Tous les champs sont optionnels.
       tags:
         - Tâches
       security:
@@ -492,6 +699,21 @@ paths:
                   type: boolean
                   description: Marquer comme terminée ?
                   example: true
+            examples:
+              modifier_nom:
+                summary: Modifier le nom uniquement
+                value:
+                  name: "Nouveau nom"
+              marquer_termine:
+                summary: Marquer comme terminée
+                value:
+                  is_done: true
+              modification_complete:
+                summary: Modifier plusieurs champs
+                value:
+                  name: "Projet terminé"
+                  description: "Tous les objectifs sont atteints"
+                  is_done: true
       responses:
         '200':
           description: Tâche modifiée
@@ -499,18 +721,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Tache'
+        '401':
+          description: Token manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
         '403':
           description: Vous n'avez pas accès à cette tâche
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erreur'
+              example:
+                error: "Accès refusé : vous n'avez pas les droits sur cette tâche"
         '404':
           description: Tâche non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: Tâche non trouvée
 
     delete:
       summary: Supprimer une tâche
-      description: Seul le propriétaire peut supprimer une tâche
+      description: |
+        Seul le propriétaire peut supprimer une tâche.
+        Les collaborateurs ne peuvent pas supprimer.
+        ⚠️ Cette action est irréversible.
       tags:
         - Tâches
       security:
@@ -534,23 +773,39 @@ paths:
                   message:
                     type: string
                     example: Tâche supprimée
-                  task:
-                    $ref: '#/components/schemas/Tache'
+        '401':
+          description: Token manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
         '403':
           description: Seul le propriétaire peut supprimer
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erreur'
+              example:
+                error: "Action refusée : seul le propriétaire peut supprimer cette tâche"
         '404':
           description: Tâche non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
 
   # ==================== COLLABORATEURS ====================
   
   /api/tasks/{id}/collaborators:
     post:
       summary: Ajouter un collaborateur
-      description: Ajoutez quelqu'un pour travailler avec vous sur cette tâche (propriétaire uniquement)
+      description: |
+        Ajoutez quelqu'un pour travailler avec vous sur cette tâche.
+        
+        **Restrictions :**
+        - Seul le propriétaire peut ajouter des collaborateurs
+        - Le propriétaire ne peut pas être ajouté comme collaborateur
+        - Un utilisateur ne peut être ajouté qu'une seule fois
       tags:
         - Collaborateurs
       security:
@@ -587,23 +842,61 @@ paths:
                   message:
                     type: string
                     example: Collaborateur ajouté
-                  task:
-                    $ref: '#/components/schemas/Tache'
         '400':
-          description: Erreur (utilisateur déjà collaborateur, propriétaire, etc.)
+          description: Erreur (utilisateur déjà collaborateur, propriétaire, ID manquant, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              examples:
+                deja_collaborateur:
+                  summary: Utilisateur déjà collaborateur
+                  value:
+                    error: Cet utilisateur est déjà collaborateur
+                proprietaire:
+                  summary: Le propriétaire ne peut pas être collaborateur
+                  value:
+                    error: Le propriétaire ne peut pas être ajouté comme collaborateur
+                id_manquant:
+                  summary: ID utilisateur manquant
+                  value:
+                    error: ID utilisateur requis
+        '401':
+          description: Token manquant
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erreur'
         '403':
           description: Seul le propriétaire peut ajouter des collaborateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: "Action refusée : seul le propriétaire peut ajouter des collaborateurs"
         '404':
           description: Tâche ou utilisateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              examples:
+                tache_non_trouvee:
+                  summary: Tâche non trouvée
+                  value:
+                    error: Tâche non trouvée
+                utilisateur_non_trouve:
+                  summary: Utilisateur non trouvé
+                  value:
+                    error: Utilisateur non trouvé
 
   /api/tasks/{id}/collaborators/{userId}:
     delete:
       summary: Retirer un collaborateur
-      description: Retirez un collaborateur de votre tâche (propriétaire uniquement)
+      description: |
+        Retirez un collaborateur de votre tâche.
+        Seul le propriétaire peut retirer des collaborateurs.
       tags:
         - Collaborateurs
       security:
@@ -634,9 +927,32 @@ paths:
                   message:
                     type: string
                     example: Collaborateur retiré
-                  task:
-                    $ref: '#/components/schemas/Tache'
+        '401':
+          description: Token manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
         '403':
           description: Seul le propriétaire peut retirer des collaborateurs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              example:
+                error: "Action refusée : seul le propriétaire peut retirer des collaborateurs"
         '404':
           description: Tâche ou collaborateur non trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erreur'
+              examples:
+                tache_non_trouvee:
+                  summary: Tâche non trouvée
+                  value:
+                    error: Tâche non trouvée
+                collaborateur_non_trouve:
+                  summary: Collaborateur non trouvé sur cette tâche
+                  value:
+                    error: Collaborateur non trouvé sur cette tâche
