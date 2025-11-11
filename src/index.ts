@@ -7,6 +7,7 @@ import userRoutes from './routes/user.route.js';
 import taskRoutes from './routes/task.route.js';
 import swaggerUi from "swagger-ui-express";
 import YAML from 'yamljs';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 
@@ -14,6 +15,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(cookieParser());
 
 // CORS : Gestion des domaines autorisés
 app.use(
@@ -28,10 +30,23 @@ app.use(
 const swaggerDocument = YAML.load("./docs/swagger.yaml"); 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument)); 
 
+
 // Routes
 app.use('/api', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api', taskRoutes);
+
+
+// Nettoyer les tokens expirés toutes les heures
+setInterval(async () => {
+  try {
+    const { cleanExpiredTokens } = await import('./services/auth.service.js');
+    await cleanExpiredTokens();
+    console.log('Tokens expirés nettoyés');
+  } catch (error) {
+    console.error('Erreur nettoyage tokens:', error);
+  }
+}, 60 * 60 * 1000); // 1 heure
 
 // Initialise la base de données et démarre le serveur
 const startServer = async () => {

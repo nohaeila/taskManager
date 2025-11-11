@@ -127,3 +127,27 @@ export const logout = async (token: string): Promise<void> => {
     await db.run('DELETE FROM refresh_tokens WHERE token = ?', [token]);
   }
 };
+
+
+// Nettoyer les refresh tokens expirés
+
+export const cleanExpiredTokens = async (): Promise<void> => {
+  const db = getDb();
+  
+  // Supprimer les tokens de plus de 7 jours
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  
+  await db.run(
+    'DELETE FROM refresh_tokens WHERE createdAt < ?',
+    [sevenDaysAgo]
+  );
+  
+  // Mettre is_login à false pour les utilisateurs sans token valide
+  await db.run(`
+    UPDATE users 
+    SET is_login = 0 
+    WHERE id NOT IN (
+      SELECT DISTINCT userId FROM refresh_tokens
+    )
+  `);
+};
