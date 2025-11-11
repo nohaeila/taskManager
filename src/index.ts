@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import { initDatabase } from './db/database.js';
 import authRoutes from './routes/auth.route.js';
@@ -14,13 +15,23 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api', userRoutes);
-app.use('/api', taskRoutes);
+// CORS : Gestion des domaines autorisés
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true 
+  })
+);
 
 const swaggerDocument = YAML.load("./docs/swagger.yaml"); 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument)); 
+
+// Routes
+app.use('/api', authRoutes);
+app.use('/api', userRoutes);
+app.use('/api', taskRoutes);
 
 // Initialise la base de données et démarre le serveur
 const startServer = async () => {
@@ -30,6 +41,7 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
       console.log(`Serveur lancé sur http://localhost:${PORT}`);
+      console.log(`Documentation Swagger : http://localhost:${PORT}/api-docs`);
     });
   } catch (error) {
     console.error('Erreur lors du démarrage:', error);

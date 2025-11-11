@@ -28,9 +28,20 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { name, password } = req.body;
     const result = await authService.login(name, password);
+
+   // Stockage du refresh token dans un cookie HTTP-Only 
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,        
+      secure: true,          
+      sameSite: 'strict',    
+      maxAge: 7 * 24 * 60 * 60 * 1000 //  durée vie cookie, ici 7 jours
+    });
+
+    // Renvoyer seulement l'access token
     res.status(200).json({
       message: 'Connexion réussie',
-      ...result
+      accessToken: result.accessToken,
+      user: result.user
     });
   } catch (error: any) {
     if (error.message.includes('requis')) {
@@ -46,13 +57,18 @@ export const login = async (req: Request, res: Response) => {
 //Renouveler le token d'accès
 export const refresh = async (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.body;
-    const result = await authService.refreshToken(refreshToken);
-    res.status(200).json(result);
-  } catch (error: any) {
-    if (error.message.includes('requis')) {
-      return res.status(401).json({ error: error.message });
+    // Récupérer le refresh token depuis les cookies
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'Refresh token requis' });
     }
+
+    const result = await authService.refreshToken(refreshToken);
+    res.status(200).json({
+        accessToken: result.accessToken
+    });
+  } catch (error: any) {
     res.status(403).json({ error: 'Refresh token invalide ou expiré' });
   }
 };
@@ -60,13 +76,17 @@ export const refresh = async (req: Request, res: Response) => {
 //se deconnecter
 export const logout = async (req: Request, res: Response) => {
   try {
-    const { refreshToken } = req.body;
-    await authService.logout(refreshToken);
+    // Récupérer le refresh token depuis les cookies
+    const refreshToken = req.cookies.refreshToken;
+    
+    if (refreshToken) {
+      await authService.logout(refreshToken);
+    }
+    // Supprimer le cookie
+    res.clearCookie('refreshToken');
+
     res.status(200).json({ message: 'Déconnexion réussie' });
   } catch (error: any) {
-    if (error.message.includes('requis')) {
-      return res.status(400).json({ error: error.message });
-    }
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
