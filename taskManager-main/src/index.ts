@@ -4,6 +4,8 @@ import { initDatabase } from './db/database.js';
 import authRoutes from './routes/auth.route.js';
 import userRoutes from './routes/user.route.js';
 import taskRoutes from './routes/task.route.js';
+import swaggerUi from "swagger-ui-express";
+import YAML from 'yamljs';
 
 dotenv.config();
 
@@ -16,6 +18,9 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api', taskRoutes);
+
+const swaggerDocument = YAML.load("./docs/swagger.yaml"); 
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument)); 
 
 // Initialise la base de données et démarre le serveur
 const startServer = async () => {

@@ -1,10 +1,11 @@
 # Gestionnaire de Tâches (Task Manager)
 
 ## Description
-Projet d'un site de gestion de tâches avec gestion des utilisateurs
+Application de gestion de tâches avec système d'authentification JWT et collaboration.
 Le projet utilise une API REST développée avec TypeScript & Express.js
 
 ## Fonctionnalités
+
 Gestion des Tâches:
 -Créer de nouvelles tâches avec nom et description
 -Consulter la liste de toutes les tâches
@@ -13,18 +14,54 @@ Gestion des Tâches:
 -Supprimer des tâches
 
 Gestion des utilisateurs : 
-Authentification des utilisateurs   
 - Chaque utilisateur peut :  
   - Voir uniquement ses tâches  
   - Ajouter d’autres utilisateurs à ses tâches (collaboration)  
   - Mettre à jour ou supprimer ses propres tâches  
-  
+
+- Authentification JWT (Access Token + Refresh Token)  
+- Validation de mot de passe sécurisé
 - API REST pour toutes les opérations  
 
-## Technologies
-- Langage : TypeScript  
-- Framework : Express.js  
+## Technologies utilisées
+- Node.js + Express
+- TypeScript
+- SQLite (base de données)
+- JWT (authentification)
+- bcrypt (hashage des mots de passe)
+- Jest (tests)
 
 ## Installation
 Installer les dépendances:
 npm install
+
+## Démarrer le projet
+npm run dev
+npm start
+
+Le serveur démarre sur : `http://localhost:3000`
+
+## Documentation API
+La documentation Swagger : `http://localhost:3000/api-docs`
+
+## Tests
+npm test
+
+# Lancer les tests avec couverture
+npm run test:coverage
+
+## Structure du projet
+
+project/
+├── src/
+│   ├── db/              # Configuration base de données
+│   ├── models/          # Interfaces TypeScript, défini la structure des données
+│   ├── utils/           # Fonctions utilitaires (JWT, password)
+│   ├── middlewares/     # Middlewares Express
+│   ├── services/        # Logique métier et persistance
+│   ├── controllers/     # Gestion des requêtes/réponses
+│   ├── routes/          # Définition des routes
+│   └── index.ts         # Point d'entrée
+├── tests/               # Tests unitaires
+├── docs/                # Documentation Swagger
+└── database.db          # Base SQLite (généré automatiquement)
