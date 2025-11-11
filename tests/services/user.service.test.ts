@@ -20,6 +20,8 @@ describe('User Service', () => {
   // Tests de récupération des utilisateurs
   describe('getAllUsers', () => {
     it('should return all users', async () => {
+
+      // Simule une liste d’utilisateurs renvoyée par la base
       const mockUsers = [
         { id: 1, name: 'User1', is_login: 0 },
         { id: 2, name: 'User2', is_login: 1 }
@@ -28,15 +30,35 @@ describe('User Service', () => {
 
       const result = await userService.getAllUsers();
 
-      expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({ id: 1, name: 'User1', is_login: false });
-      expect(result[1]).toEqual({ id: 2, name: 'User2', is_login: true });
+      expect(result).toHaveLength(2); // Vérifie que la fonction retourne bien les deux utilisateurs
+      expect(result[0]).toEqual({ id: 1, name: 'User1', is_login: false }); // Vérifie que le premier utilisateur a les bonnes infos
+      expect(result[1]).toEqual({ id: 2, name: 'User2', is_login: true });// Vérifie que le deuxième a bien "is_login" à true
     });
 
-    it('should throw on database error', async () => {
-      mockDb.all.mockRejectedValue(new Error('DB Error'));
+    it('should throw on database error', async () => { // Simule une erreur dans la base de données
+      mockDb.all.mockRejectedValue(new Error('DB Error')); // Vérifie que la fonction renvoie bien une erreur
 
       await expect(userService.getAllUsers()).rejects.toThrow();
+    });
+  });
+
+//Tests pour récupérer un utilisateur avec son ID
+    describe('getUserById', () => {
+    it('should return user if found', async () => {
+      mockDb.get.mockResolvedValue({ id: 1, name: 'User1', is_login: 0 });
+
+      const result = await userService.getUserById(1);
+
+      // Vérifie que les infos de l’utilisateur sont correctes
+      expect(result).toEqual({ id: 1, name: 'User1', is_login: false });
+    });
+
+    it('should return null if user not found', async () => {
+      mockDb.get.mockResolvedValue(null);
+
+      const result = await userService.getUserById(999);
+
+      expect(result).toBeNull();
     });
   });
 
@@ -85,6 +107,7 @@ describe('User Service', () => {
 
       await userService.deleteUser(1);
 
+      // Vérifie que la requête SQL DELETE a bien été exécutée
       expect(mockDb.run).toHaveBeenCalledWith('DELETE FROM users WHERE id = ?', [1]);
     });
   });
