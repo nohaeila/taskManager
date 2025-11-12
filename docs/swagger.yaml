@@ -956,3 +956,102 @@ paths:
                   summary: Collaborateur non trouvé sur cette tâche
                   value:
                     error: Collaborateur non trouvé sur cette tâche
+
+                    
+ # ==================== GOOGLE CALENDAR ====================
+  
+  /api/calendar/events:
+    post:
+      summary:  Créer un événement dans Google Calendar
+      description: |
+        Crée automatiquement un événement dans ton Google Calendar.
+        Pratique pour synchroniser tes tâches avec ton agenda !
+      tags: [Calendar]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [summary, startDateTime, endDateTime]
+              properties:
+                summary:
+                  type: string
+                  description: Titre de l'événement
+                  example: "Réunion client Important"
+                description:
+                  type: string
+                  description: Description de l'événement
+                  example: "Présentation du nouveau produit"
+                startDateTime:
+                  type: string
+                  format: date-time
+                  description: Date et heure de début (format ISO 8601)
+                  example: "2024-12-15T14:00:00"
+                endDateTime:
+                  type: string
+                  format: date-time
+                  description: Date et heure de fin
+                  example: "2024-12-15T15:00:00"
+                location:
+                  type: string
+                  description: Lieu de l'événement
+                  example: "10 Rue de la Paix, Paris"
+      responses:
+        '201':
+          description: Événement créé dans Google Calendar
+          content:
+            application/json:
+              example:
+                message: "Événement créé dans Google Calendar"
+                event:
+                  id: "abc123xyz"
+                  htmlLink: "https://www.google.com/calendar/event?eid=..."
+                  summary: "Réunion client Important"
+                  start:
+                    dateTime: "2024-12-15T14:00:00+01:00"
+                  end:
+                    dateTime: "2024-12-15T15:00:00+01:00"
+        '500':
+          description:  Erreur lors de la création
+
+  /api/calendar/events/{eventId}:
+    get:
+      summary: Récupérer un événement
+      tags: [Calendar]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          description: ID de l'événement Google Calendar
+          schema:
+            type: string
+            example: "abc123xyz"
+      responses:
+        '200':
+          description: Événement trouvé
+        '404':
+          description: Événement non trouvé
+
+    delete:
+      summary: Supprimer un événement
+      tags: [Calendar]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Événement supprimé
+
+tags:
+  - name: Calendar
+    description: Synchronisation avec Google Calendar
