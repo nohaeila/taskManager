@@ -65,3 +65,15 @@ project/
 ├── tests/               # Tests unitaires
 ├── docs/                # Documentation Swagger
 └── database.db          # Base SQLite (généré automatiquement)
+
+## API Tierce utilisée
+
+### Google Calendar API
+- **Description :** Synchronisation automatique des tâches avec Google Calendar
+- **Documentation :** https://developers.google.com/calendar/api
+- **Utilisation :** Créer, récupérer et supprimer des événements dans le calendrier
+
+**Cas d'usage :**
+- Créer une tâche → Automatiquement ajoutée au calendrier Google
+- Supprimer une tâche → Supprimer l'événement du calendrier
+- Voir les dates importantes dans Google Calendar
