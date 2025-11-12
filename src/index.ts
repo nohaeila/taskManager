@@ -8,6 +8,7 @@ import taskRoutes from './routes/task.route.js';
 import swaggerUi from "swagger-ui-express";
 import YAML from 'yamljs';
 import cookieParser from 'cookie-parser';
+import calendarRoutes from './routes/calendar.route.js';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/api', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api', taskRoutes);
+app.use('/api', calendarRoutes);
 
 
 // Nettoyer les tokens expirés toutes les heures
