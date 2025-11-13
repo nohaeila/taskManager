@@ -1,6 +1,8 @@
 {
   "name": "taskmanager-main",
   "version": "1.0.0",
+  "license": "MIT",
+  "author": "Nohaeila LAGHALID",
   "description": "",
   "main": "index.js",
   "type": "module",
@@ -11,8 +13,6 @@
     "test:coverage": "jest --coverage"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
