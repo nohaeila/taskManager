@@ -76,4 +76,4 @@ project/
 **Cas d'usage :**
 - Créer une tâche → Automatiquement ajoutée au calendrier Google
 - Supprimer une tâche → Supprimer l'événement du calendrier
-- Voir les dates importantes dans Google Calendar
+- Voir les dates importantes dans Google Calendar 
