@@ -512,7 +512,7 @@ paths:
       summary: Supprimer un utilisateur
       description: |
         Supprime un utilisateur de la base de données.
-        ⚠️ Cette action est irréversible.
+        Cette action est irréversible.
       tags:
         - Utilisateurs
       parameters:
@@ -553,36 +553,73 @@ paths:
   
   /api/tasks:
     get:
-      summary: Voir mes tâches
+      summary: Lister mes tâches (avec pagination)
       description: |
-        Affiche toutes les tâches où vous êtes propriétaire OU collaborateur.
-        Les tâches sont stockées en base de données SQLite.
+        Retourne toutes les tâches dont je suis propriétaire ou collaborateur.
+        Pagination incluse pour une meilleure performance.
       tags:
         - Tâches
       security:
         - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Numéro de page (commence à 1)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: perPage
+          in: query
+          description: Nombre de tâches par page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            example: 10
       responses:
         '200':
-          description: Voici vos tâches
+          description: Liste paginée des tâches 
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Tache'
+                type: objet
+                properties:
+                  items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Tache'
+                  total:
+                    type: integer
+                    description: Nombre total de tâches (toutes pages confondues)
+                    example: 157
+                  page:
+                    type: integer
+                    example: 1
+                  perPage:
+                    type: integer
+                    example: 10
               example:
-                - id: 1
-                  name: Projet1
-                  description: Développer un jeu
-                  is_done: false
-                  userId: 1
-                  collaboratorId: [2]
-                - id: 2
-                  name: Projet2
-                  description: Site web
-                  is_done: false
-                  userId: 2
-                  collaboratorId: []
+                items:
+                  - id: 1
+                    name: "Faire les courses"
+                    description: "Lait, œufs, pain"
+                    is_done: false
+                    userId: 1
+                    collaboratorId: [3]
+                  - id: 2
+                    name: "Réparer la fuite"
+                    description: ""
+                    is_done: true
+                    userId: 1
+                    collaboratorId: []
+                total: 157
+                page: 1
+                perPage: 10
         '401':
           description: Vous devez être connecté
           content:
