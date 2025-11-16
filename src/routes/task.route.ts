@@ -9,6 +9,7 @@ const router = Router();
 
 router.get('/tasks', authenticateToken, requestLogger, taskController.listTasks);
 router.post('/tasks', authenticateToken, requestLogger, taskController.createTask);
+router.get('/tasks/:id', authenticateToken, taskController.findOne);
 router.put('/tasks/:id', authenticateToken, taskController.updateTask);
 router.delete('/tasks/:id', authenticateToken, taskController.deleteTask);
 router.post('/tasks/:id/collaborators', authenticateToken, taskController.addCollaborator);

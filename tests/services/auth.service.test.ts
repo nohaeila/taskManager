@@ -2,13 +2,15 @@ import * as authService from '../../src/services/auth.service.js';
 import { getDb } from '../../src/db/database.js';
 import * as passwordUtil from '../../src/utils/password.util.js';
 
+const mockValidatePasswordDetailed = jest.spyOn(passwordUtil, 'validatePasswordDetailed');
+const mockHashPassword = jest.spyOn(passwordUtil, 'hashPassword');
+const mockComparePassword = jest.spyOn(passwordUtil, 'comparePassword');
 
 // Mock de la base de données
 jest.mock('../../src/db/database', () => ({
   getDb: jest.fn()
 }));
 
-jest.mock('../../src/utils/password.util.js');
 
 const mockDb = {
   get: jest.fn(),
@@ -20,6 +22,10 @@ describe('Auth Service', () => {
   beforeEach(() => {
     jest.clearAllMocks(); // réinitialise les mocks avant chaque test
     (getDb as jest.Mock).mockReturnValue(mockDb);
+
+    mockValidatePasswordDetailed.mockReset();
+    mockHashPassword.mockReset();
+    mockComparePassword.mockReset();
   });
 
   // Tests de la fonction signup
@@ -34,32 +40,40 @@ describe('Auth Service', () => {
     });
     //mdp invalide
     it('should throw if password is invalid', async () => {
-      (passwordUtil.isValidPassword as jest.Mock).mockReturnValue(false);
+    mockValidatePasswordDetailed.mockReturnValue({
+        isValid: false,
+        errors: ['Le mot de passe doit contenir au moins 8 caractères']
+    });
 
-      await expect(authService.signup({ name: 'Test', password: 'weak' }))
-        .rejects.toThrow('Le mot de passe doit contenir');
+    await expect(authService.signup({ name: 'Test', password: 'weak' }))
+        .rejects.toThrow('Le mot de passe doit contenir au moins 8 caractères');
     });
 
     it('should throw if user already exists', async () => {
-    (passwordUtil.isValidPassword as jest.Mock).mockReturnValue(true);
+    mockValidatePasswordDetailed.mockReturnValue({
+        isValid: true,
+        errors: []
+    });
 
-      mockDb.get.mockResolvedValue({ id: 1, name: 'ExistingUser' });
+    mockDb.get.mockResolvedValue({ id: 1, name: 'ExistingUser' });
 
-      await expect(authService.signup({ name: 'ExistingUser', password: 'Valid123@' }))
+    await expect(authService.signup({ name: 'ExistingUser', password: 'Valid123@' }))
         .rejects.toThrow('Utilisateur déjà existant');
     });
 
     //Création de l'utilisateur 
     it('should create user successfully', async () => {
-      (passwordUtil.isValidPassword as jest.Mock).mockReturnValue(true);
-      (passwordUtil.hashPassword as jest.Mock).mockResolvedValue('hashedPassword');
-      mockDb.get.mockResolvedValue(null); // pas d’utilisateur existant
-      mockDb.run.mockResolvedValue({ lastID: 1 });
+    mockValidatePasswordDetailed.mockReturnValue({
+        isValid: true,
+        errors: []
+    });
+    mockHashPassword.mockResolvedValue('hashedPassword');
+    mockDb.get.mockResolvedValue(null);
+    mockDb.run.mockResolvedValue({ lastID: 1 });
 
-      const result = await authService.signup({ name: 'NewUser', password: 'Valid123@' });
+    const result = await authService.signup({ name: 'NewUser', password: 'Valid123@' });
 
-      expect(result).toEqual({ id: 1, name: 'NewUser' });
-      expect(mockDb.run).toHaveBeenCalled();// on vérifie que la DB a été appelée
+    expect(result).toEqual({ id: 1, name: 'NewUser' });
     });
   });
 

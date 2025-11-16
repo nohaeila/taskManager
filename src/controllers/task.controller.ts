@@ -1,15 +1,24 @@
 import type { Request, Response } from 'express';
 import * as taskService from '../services/task.service.js';
+import { getDb } from '../db/database.js';
 
 // Gère la requête et la réponse  
-
 
 //Récupère toutes les tâches de l'utilisateur connecté
 export const listTasks = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const tasks = await taskService.getUserTasks(userId);
-    res.status(200).json(tasks);
+    // Parser les query params
+    const pageQuery = req.query.page as string | undefined;
+    const perPageQuery = req.query.perPage as string | undefined;
+
+    const page = pageQuery ? parseInt(pageQuery, 10) : 1;
+    const perPage = perPageQuery ? parseInt(perPageQuery, 10) : 3;
+
+    // Appeler le service
+    const result = await taskService.findAllPaginated(userId, page, perPage);
+
+    res.status(200).json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -23,6 +32,49 @@ export const createTask = async (req: Request, res: Response) => {
     res.status(201).json(task);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+
+// Récupérer UNE tâche par ID
+export const findOne = async (req: Request, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.id!);
+    const userId = req.user!.id;
+    
+    const db = getDb();
+    const task = await db.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Tâche non trouvée' });
+    }
+
+    // Vérifier l'accès
+    const isCollaborator = await db.get(
+      'SELECT * FROM task_collaborators WHERE taskId = ? AND userId = ?',
+      [taskId, userId]
+    );
+
+    if (task.userId !== userId && !isCollaborator) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+
+    // Récupérer les collaborateurs
+    const collaborators = await db.all(
+      'SELECT userId FROM task_collaborators WHERE taskId = ?',
+      [taskId]
+    );
+
+    res.status(200).json({
+      id: task.id,
+      name: task.name,
+      description: task.description,
+      is_done: Boolean(task.is_done),
+      userId: task.userId,
+      collaboratorId: collaborators.map((c: any) => c.userId)
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 };
 

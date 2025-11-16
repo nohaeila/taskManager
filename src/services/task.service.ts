@@ -1,25 +1,46 @@
 import { getDb } from '../db/database.js';
 import type { Task, TaskCreateInput, TaskUpdateInput } from '../models/task.model.js';
 
-// Récupérer les tâches d'un utilisateur (propriétaire ou collaborateur)
-export const getUserTasks = async (userId: number): Promise <Task[]> => {
+
+//Récupérer les tâches paginées 
+export const findAllPaginated = async (
+  userId: number,
+  page: number = 1,
+  perPage: number = 3
+): Promise<{ items: Task[]; total: number; page: number; perPage: number }> => {
   const db = getDb();
 
-  const tasks = await db.all(`
-    SELECT DISTINCT t.* 
+  // Calculer le skip
+  const skip = (page - 1) * perPage;
+
+  //Compter le total 
+  const countResult = await db.get(`
+    SELECT COUNT(DISTINCT t.id) as total
     FROM tasks t
     LEFT JOIN task_collaborators tc ON t.id = tc.taskId
     WHERE t.userId = ? OR tc.userId = ?
   `, [userId, userId]);
 
-  // Récupérer les collaborateurs pour chaque tâche
-  const tasksWithCollaborators = await Promise.all(
+  const total = countResult?.total ?? 0;
+
+  //Récupérer les tâches avec ORDER BY DESC + LIMIT + OFFSET
+  const tasks = await db.all(`
+    SELECT DISTINCT t.* 
+    FROM tasks t
+    LEFT JOIN task_collaborators tc ON t.id = tc.taskId
+    WHERE t.userId = ? OR tc.userId = ?
+    ORDER BY t.id DESC
+    LIMIT ? OFFSET ?
+  `, [userId, userId, perPage, skip]);
+
+  //Mapper les tâches (ajouter les collaborateurs)
+  const items = await Promise.all(
     tasks.map(async (task: any) => {
       const collaborators = await db.all(
         'SELECT userId FROM task_collaborators WHERE taskId = ?',
         [task.id]
       );
-      
+
       return {
         id: task.id,
         name: task.name,
@@ -30,12 +51,17 @@ export const getUserTasks = async (userId: number): Promise <Task[]> => {
       };
     })
   );
+  return { items, total, page, perPage };
+};
 
-  return tasksWithCollaborators;
+
+// Récupérer les tâches d'un utilisateur (pour compatibilité))
+export const getUserTasks = async (userId: number): Promise <Task[]> => {
+  const result = await findAllPaginated(userId, 1, 1000);
+  return result.items;
 };
 
 // Créer une tâche
-
 export const createTask = async (input: TaskCreateInput): Promise <Task> => {
   const { name, description, userId } = input;
 
@@ -61,7 +87,6 @@ export const createTask = async (input: TaskCreateInput): Promise <Task> => {
 };
 
 // Mettre à jour une tâche
- 
 export const updateTask = async (
   taskId: number,
   userId: number,
@@ -109,7 +134,6 @@ export const updateTask = async (
 };
 
 // Supprimer une tâche
-
 export const deleteTask = async (taskId: number, userId: number): Promise <void>=> {
   const db = getDb();
 
@@ -127,7 +151,6 @@ export const deleteTask = async (taskId: number, userId: number): Promise <void>
 
 
 // Ajouter un collaborateur
-
 export const addCollaborator = async (
   taskId: number,
   ownerId: number,
