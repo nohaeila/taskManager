@@ -40,7 +40,7 @@ export const login = async (req: Request, res: Response) => {
     // Renvoyer seulement l'access token
     res.status(200).json({
       message: 'Connexion réussie',
-      accessToken: result.accessToken,
+      accessToken: result.accessToken,// Envoyé en JSON au client
       user: result.user
     });
   } catch (error: any) {

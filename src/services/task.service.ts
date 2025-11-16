@@ -125,6 +125,7 @@ export const deleteTask = async (taskId: number, userId: number): Promise <void>
   await db.run('DELETE FROM tasks WHERE id = ?', [taskId]);
 };
 
+
 // Ajouter un collaborateur
 
 export const addCollaborator = async (

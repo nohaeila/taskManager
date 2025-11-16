@@ -1,6 +1,6 @@
 import { getDb } from '../db/database.js';
 import type { User, UserCreateInput } from '../models/user.model.js';
-import { isValidPassword, hashPassword, comparePassword } from '../utils/password.util.js';
+import { isValidPassword, hashPassword, comparePassword, validatePasswordDetailed } from '../utils/password.util.js';
 import { generateAccessToken, generateRefreshToken } from '../utils/jwt.util.js';
 
 // Créer un nouvel utilisateur
@@ -12,10 +12,13 @@ export const signup = async (input: UserCreateInput): Promise<{ id: number; name
     throw new Error('Nom et mot de passe requis');
   }
 
-  if (!isValidPassword(password)) {
-    throw new Error(
-      'Le mot de passe doit contenir au moins 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial'
-    );
+  // validation de mdp détaillée
+  const validation = validatePasswordDetailed(password);
+  
+  if (!validation.isValid) {
+    // Créer un message avec toutes les erreurs
+    const errorMessage = validation.errors.join('. ');
+    throw new Error(errorMessage);
   }
 
   const db = getDb();
